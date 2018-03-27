@@ -1,6 +1,6 @@
 # i3av(ailable)
 
-This script list keys that isn't being used by i3 as keybindings so you 
+This Python3 script list keys that isn't being used by i3 as keybindings so you 
 easier can find available keys.
 You can limit the listing to selected modifier keys, see [help](#help).
 
