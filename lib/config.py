@@ -87,28 +87,48 @@ class Config:
         """
 
         self.path = path
-        self.bindings = self.getBindings()
-
-    def getBindings(self):
-        """Gets keybindings from configuration file
-
-        :return: a list of keybindings
-        :rtype: [Binding, ...]
-        """
-
-        bindings = []
-        reBinding = re.compile(r"^bind(sym|code)\s(.+?)\s")
-
+        self.variables = self.parseVariables()
+        self.bindings = self.parseBindings()
+    
+    def readConfig(self):
         with open(self.path, "r") as f:
             for line in f:
                 l = line.strip()
-                matches = reBinding.match(l)
-                if matches:
-                    bindings.append(
-                        Binding(
-                            matches.group(1), matches.group(2)
-                        )
+                yield l
+
+    def parseVariables(self):
+        """Parses variables that are set in the config and saves them
+        
+        :return: A dict with varName: value
+        :rtype: dict
+        """
+
+        reSet = re.compile(r"^set\s+(\$.+?)\s+(.+?)$")
+        variables = {}
+        for line in self.readConfig():
+            matches = reSet.match(line)
+            if matches:
+                variables[matches.group(1)] = matches.group(2)
+        return variables
+
+    def parseBindings(self):
+        """Gets keybindings from configuration file
+
+        :return: a list of keybindings, [Binding, ...]
+        :rtype: list
+        """
+
+        reBinding = re.compile(r"^bind(sym|code)\s(.+?)\s")
+        bindings = []
+
+        for line in self.readConfig():
+            matches = reBinding.match(line)
+            if matches:
+                bindings.append(
+                    Binding(
+                        matches.group(1), matches.group(2), self.variables
                     )
+                )
         return bindings
 
     def availableBindings(self, keys, combination):
@@ -121,9 +141,17 @@ class Config:
         :return: a list of available keybindings, bindings that isn't used
         :rtype: list
         """
+        newComb = set()
+        
+        for c in combination:
+            # if variable, replace it with the right value
+            if c in self.variables:
+                newComb.add(self.variables[c])
+            else:
+                newComb.add(c)
 
         used = [x.sym.lower()
-                for x in self.bindings if x.modifiers == combination and x.sym != None]
+                for x in self.bindings if set(x.modifiers) == newComb and x.sym != None]
         return [x for x in keys if x.lower() not in used]
 
 
@@ -131,37 +159,50 @@ class Binding:
     """Holds a keybinding
     """
 
-    def __init__(self, bindtype, keys):
+    def __init__(self, bindtype, keys, variables):
         """Init Binding
-
+        
         :param bindtype: either sym or code
         :type bindtype: str
         :param keys: string of keys, e.g. "$mod+Shift+a"
         :type keys: str
+        :param variables: a dict with variables
+        :type variables: dict
         """
 
         self.type = bindtype
         self.sym = None
         self.code = None
 
-        self.modifiers = {
-            "$mod": False,
-            "Ctrl": False,
-            "Shift": False,
-            "Mod1": False,
-            "Mod2": False,
-            "Mod3": False,
-            "Mod4": False,
-            "Mod5": False
-        }
-        self.keys = self.splitKeys(keys)
+        self.modifiers = []
+        splitted = self.splitKeys(keys)
+        self.keys = self.expandVars(splitted, variables)
         self.setModifiers()
 
-        if self.type == "sym":
+        if self.type == "sym" and len(self.keys) > 0:
             self.sym = self.keys[-1]
-        elif self.type == "code":
+        elif self.type == "code" and len(self.keys) > 0:
             self.code = self.keys[-1]
             self.sym = self.getKeySym(self.code)
+    
+    def expandVars(self, keys, variables):
+        """Expands variable to their corresponding value
+        
+        :param keys: a list of keys
+        :type keys: list
+        :param variables: a dict with variables
+        :type variables: dict
+        :return: a list with keys, expanded variables
+        :rtype: list
+        """
+
+        r = []
+        for k in keys:
+            if k in variables:
+                r.append(variables[k])
+            else:
+                r.append(k)
+        return r
 
     def splitKeys(self, keys):
         """Splits a string of keys to a list
@@ -175,13 +216,11 @@ class Binding:
         return [x for x in keys.split("+")]
 
     def setModifiers(self):
-        """Sets all modifiers in use to True
+        """Adds all modifiers to a list
         """
 
-        modifiers = self.modifiers.keys()
-        for k in self.keys:
-            if k.lower().capitalize() in modifiers:
-                self.modifiers[k] = True
+        for k in self.keys[:-1]:
+            self.modifiers.append(k)
 
     def getKeySym(self, code):
         """Keycode to keysym
@@ -206,8 +245,7 @@ class Binding:
 
         v = []
         for m in self.modifiers:
-            if self.modifiers[m]:
-                v.append(m)
+            v.append(m)
         v.append(self.sym or "(code " + self.code + ")")
         return "+".join(v)
 
