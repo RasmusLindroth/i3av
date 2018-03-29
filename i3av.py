@@ -7,60 +7,32 @@ import string
 import lib.config as config
 import lib.keys
 
+# Hardcoded default variable for the primary modifier key,
+# can be changed with --modvar
+modVariable = "$mod"
+
 # The keys that will be listed as available
 keys = lib.keys.getKeys(
     ["0-9", "a-z", "nordic", "arrow", "common", "function"])
 
-
-def getCombo(active):
-    """Set active modifiers. Used in lib.config.Config.availableBindings
-
-    :param active: list of modifiers to activate, e.g. ["$mod"]
-    :type active: list
-    :return: dictionary of active modifiers
-    :rtype: dict
-    """
-
-    modifiers = {
-        "$mod": False,
-        "Ctrl": False,
-        "Shift": False,
-        "Mod1": False,
-        "Mod2": False,
-        "Mod3": False,
-        "Mod4": False,
-        "Mod5": False
-    }
-    for k in active:
-        if k in modifiers:
-            modifiers[k] = True
-    return modifiers
-
-
 def printAvailable(modifier, available):
     """Prints available keys and their modifiers
 
-    :param modifier: list of modifiers, see getCombo()
+    :param modifier: list of modifiers
     :type modifier: dict
     :param available: list of available keys, see lib.config.Config.availableBindings()
     :type available: list
     """
 
-    mods = "+".join([m for m in modifier if modifier[m]])
+    mods = "+".join([m for m in modifier])
     print("\nAvailable " + mods + ":")
     print(", ".join(available))
-
-
-combinations = {
-    "mod": getCombo(["$mod"]),
-    "shift": getCombo(["$mod", "Shift"]),
-    "ctrl": getCombo(["$mod", "Ctrl"]),
-    "triplet": getCombo(["$mod", "Ctrl", "Shift"]),
-}
 
 # Init argparse
 parser = argparse.ArgumentParser(
     description="Lists available bindings for i3.")
+parser.add_argument(
+    "--modvar", help="variable name of modkey, e.g. '$m', defaults to $mod", type=str)
 parser.add_argument(
     "--config", help="path to configuration file. Otherwise it searches in default locations.", type=str)
 parser.add_argument(
@@ -71,7 +43,28 @@ parser.add_argument(
     "-c", "--ctrl", help="available $mod+Ctrl bindings", action="store_true")
 parser.add_argument(
     "-t", "--triplet", help="available $mod+Ctrl+Shift bindings", action="store_true")
+parser.add_argument(
+    "-b", "--bindings", help="custom binding(s), e.g. '$mod+Mod2'", type=str, nargs='+')
 args = parser.parse_args()
+
+# Turple with args that will be iterated
+boolArgs = ("mod", "shift", "ctrl", "triplet")
+
+# If --modvar is set change the default modifier
+if args.modvar:
+    modVariable = args.modvar
+
+combinations = {
+    "mod": [modVariable],
+    "shift": [modVariable, "Shift"],
+    "ctrl": [modVariable, "Ctrl"],
+    "triplet": [modVariable, "Ctrl", "Shift"],
+}
+
+# Adds custom binding(s)
+if args.bindings:
+    for i, b in enumerate(args.bindings):
+        combinations["binding_"+str(i)] = b.split("+")
 
 # Use user selected config else search defaults
 if args.config:
@@ -101,12 +94,14 @@ print("Reading from " + conf.path)
 c = config.Config(conf.path)
 
 # Checks if atleast one keygroup is selected, else all True
-if not any([getattr(args, x) for x in combinations]):
+if not args.bindings and not any([getattr(args, x) for x in boolArgs]):
     for attr in combinations:
         setattr(args, attr, True)
 
 # Iterate through arguments and print if selected
 for attr in combinations:
-    if getattr(args, attr):
-        available = c.availableBindings(keys, combinations[attr])
-        printAvailable(combinations[attr], available)
+    # Skip combinations that isn't selected by the user
+    if attr in args and not getattr(args, attr):
+        continue
+    available = c.availableBindings(keys, combinations[attr])
+    printAvailable(combinations[attr], available)
