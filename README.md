@@ -43,13 +43,13 @@ located in [lib/keys.py](./lib/keys.py).
 #### Change primary modifier key
 
 This script defaults to `$mod` as the modifier key. You can change this with 
-adding the argument `--modvar '$m'` or change `modVariable` in [lib/keys.py](./lib/keys.py).
+adding the argument `--modvar '$m'` or change `modVariable` in [i3av.py](./i3av.py).
 
 #### Custom bindings
 
 If the modifiers provided isn't enough you can add your own with `--bindings`, 
 e.g. `./i3av.py --bindings '$mod+Mod2' '$mod+Mod4'`. You can also change the 
-code, take a look at the dict `combinations` in [lib/keys.py](./lib/keys.py).
+code, take a look at the dict `combinations` in [i3av.py](./i3av.py).
 
 ### Example
 
