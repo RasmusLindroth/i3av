@@ -1,3 +1,7 @@
+# I recommend you check out my new program [i3keys](https://github.com/RasmusLindroth/i3keys) instead
+
+You are still free to use i3av if you like, but I will prioritize i3keys. 
+
 # i3av(ailable)
 
 This Python3 script list keys that isn't being used by i3 as keybindings so you 
